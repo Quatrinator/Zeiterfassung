@@ -1,0 +1,14 @@
+REVOKE ALL PRIVILEGES ON zeitwerk.* FROM 'zeitwerk'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON zeitwerk.companies TO 'zeitwerk'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON zeitwerk.users TO 'zeitwerk'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON zeitwerk.roles TO 'zeitwerk'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON zeitwerk.permissions TO 'zeitwerk'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON zeitwerk.role_permissions TO 'zeitwerk'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON zeitwerk.user_roles TO 'zeitwerk'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON zeitwerk.user_permissions TO 'zeitwerk'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON zeitwerk.hourly_rates TO 'zeitwerk'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON zeitwerk.time_entries TO 'zeitwerk'@'%';
+GRANT SELECT, INSERT ON zeitwerk.audit_events TO 'zeitwerk'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON zeitwerk.submission_keys TO 'zeitwerk'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON zeitwerk.login_attempts TO 'zeitwerk'@'%';
+GRANT SELECT ON zeitwerk.schema_versions TO 'zeitwerk'@'%';

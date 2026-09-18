@@ -1,0 +1,91 @@
+name: zeitwerk
+services:
+  nginx:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:8080"
+    volumes:
+      - ./public:/var/www/app/public:ro
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      php:
+        condition: service_healthy
+    networks: [web]
+    healthcheck:
+      test: [CMD-SHELL, "wget -q -O /dev/null http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: &logging
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  php:
+    image: zeitwerk-php:1.0
+    build: ./docker/php
+    restart: unless-stopped
+    environment:
+      APP_URL: ${APP_URL:-https://zeit.example.de}
+      APP_NAME: ${APP_NAME:-Zeitwerk}
+      COMPANY_NAME: ${COMPANY_NAME:-Externe Firma}
+      APP_ENV: ${APP_ENV:-production}
+      COOKIE_SECURE: ${COOKIE_SECURE:-1}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1/32}
+      DB_HOST: mysql
+      DB_NAME: zeitwerk
+      DB_USER: zeitwerk
+      DB_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    volumes:
+      - ./public:/var/www/app/public:ro
+      - ./src:/var/www/app/src:ro
+      - ./templates:/var/www/app/templates:ro
+      - ./config:/var/www/app/config:ro
+      - ./bin:/var/www/app/bin:ro
+      - ./database:/var/www/app/database:ro
+      - php_sessions:/var/lib/php/sessions
+    working_dir: /var/www/app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [web, database]
+    healthcheck:
+      test: [CMD, php, bin/health.php]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: zeitwerk
+      MYSQL_USER: zeitwerk
+      MYSQL_PASSWORD_FILE: /run/secrets/db_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+    secrets: [db_password, db_root_password]
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/grants.sql:/docker-entrypoint-initdb.d/02-grants.sql:ro
+      - ./database:/opt/zeitwerk:ro
+    networks: [database]
+    healthcheck:
+      test: [CMD-SHELL, "MYSQL_PWD=$$(cat /run/secrets/db_root_password) mysqladmin ping -h localhost -u root --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    logging: *logging
+networks:
+  web:
+  database:
+    internal: true
+volumes:
+  mysql_data:
+  php_sessions:
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  db_root_password:
+    file: ./secrets/db_root_password.txt

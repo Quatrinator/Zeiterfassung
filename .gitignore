@@ -1,0 +1,9 @@
+/.tools/
+/.env
+/config/config.local.php
+/secrets/*
+!/secrets/.gitkeep
+/backups/
+/test-results/
+/dist/
+/.runtime/

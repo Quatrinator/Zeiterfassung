@@ -1,0 +1,7 @@
+.git
+.tools
+.runtime
+secrets
+backups
+test-results
+dist
