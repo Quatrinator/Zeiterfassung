@@ -47,7 +47,7 @@ function save_entry(array $actor,array $input): array
             $date=valid_date($input['service_date'] ?? null);
             if ($date>today()) fail('Gearbeitete Zeit kann nicht in der Zukunft liegen.');
             $minutes=integer($input['minutes'] ?? null,'Dauer',1,1440);
-            $description=text_value($input['description'] ?? null,'Tätigkeit',500);
+            $description=entry_description($actor,$input);
             $category=text_value($input['category'] ?? '', 'Kategorie',40,false);
             if (!in_array($category,['','Support','Wartung','Einrichtung','Entwicklung','Beratung','Sonstiges'],true)) fail('Ungültige Kategorie.');
             $billable=bool_value($input['billable'] ?? true);

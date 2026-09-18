@@ -1,12 +1,16 @@
 # Implementierungs- und Prüfstand
 
-Stand: 18.09.2026 · Version 1.0.0 · Schema 001_initial
+Stand: 18.09.2026 · Version 1.1.0 · Schema 002_activity_templates
 
 ## Lieferumfang
 
 Die Muss-Funktionen F-01 bis F-09, F-12 bis F-14, F-16 und F-18 bis F-22 sowie die Soll-Funktionen F-10/F-11 sind implementiert. Die optionalen Funktionen Stoppuhr (F-15) und PDF (F-17) sind nicht enthalten. Bedienung, Installation und Grenzen stehen in `README.md`.
 
 Die Anwendung läuft als drei Dienste mit lokalem PHP-Code, nativem JavaScript und bereits kompiliertem Tailwind-CSS. Es gibt keine Frameworkinstallation, kein Composer, keine Node-Laufzeit und keinen CSS-Build beim Deployment.
+
+Version 1.1 ergänzt gemeinsame Tätigkeitsvorlagen: Auswahl ohne Pflichtkommentar, optionale Ergänzungen und freie Tätigkeiten. Das Recht `templates.manage` erlaubt Anlegen/Löschen und kann unabhängig von Finanzrechten vergeben werden. Gespeicherte Beschreibungen bleiben eigenständige Texte; Vorlagenlöschungen verändern keine bestehenden Leistungen. Die additive Migration `002_activity_templates` wurde nach einer Sicherung auf der bestehenden lokalen Installation ausgeführt und ein zweiter Aufruf auf Unverändertheit geprüft.
+
+Der Browserdurchlauf für 1.1 prüfte das Anlegen einer Vorlage, das Auswahlfeld, das Speichern ohne Freitext und den Lösch-Bestätigungsdialog. Tatsächliches Löschen, Bestandsschutz alter Einträge, Berechtigungen und die Kombination mit Freitext sind zusätzlich automatisiert geprüft.
 
 Gegenüber dem konzeptionellen Datenmodell liegen Arbeitszeiten und Korrekturen gemeinsam in `time_entries`, unterschieden über `kind`. Dadurch verwenden Filter, Summen und CSV denselben Datenbestand. Korrekturen besitzen `original_id` und Zielwerte. `submission_keys` speichert wiederholbare Speicherergebnisse; `auth_version` widerruft Sitzungen nach Benutzeränderungen. Alle Schreibtransaktionen sperren die Firmenzeile; diese einfache Serialisierung ist bewusst auf ein kleines Team zugeschnitten.
 
@@ -16,16 +20,16 @@ Gegenüber dem konzeptionellen Datenmodell liegen Arbeitszeiten und Korrekturen 
 |---|---|
 | Docker-Build und Start | Nginx, PHP-FPM und MySQL erfolgreich gestartet; alle drei Healthchecks erfolgreich |
 | Tatsächliche PHP-/MySQL-Version | PHP 8.5.10, MySQL 8.4.11 |
-| PHP-Syntax | Alle 13 ausgelieferten PHP-Dateien ohne Syntaxfehler |
+| PHP-Syntax | Alle 14 ausgelieferten PHP-Dateien ohne Syntaxfehler |
 | JavaScript-Syntax | Native JavaScript-Datei besteht `node --check` |
 | Tailwind | Lokale CSS-Datei mit Standalone CLI 4.3.0 erzeugt |
-| MySQL-Fachlogik | 48 Assertions in `tests/integration.php` bestanden |
-| HTTP-Schnittstellen | 25 Assertions in `tests/http.mjs` bestanden, auch nach SQL-Wiederherstellung |
+| MySQL-Fachlogik | 62 Assertions in `tests/integration.php` bestanden |
+| HTTP-Schnittstellen | 32 Assertions in `tests/http.mjs` bestanden |
 | Datenbankrechte | Vier Prüfungen in `tests/grants.php` bestanden: Historie nicht änder-/löschbar, kein CREATE-Recht, kein Root-Secret im PHP-Container |
 | Installation | Leeren Testordner initialisiert; erneuter Setup-Aufruf lässt vorhandene Konfiguration und Secrets unverändert |
 | Browser | Lokale Anmeldung, schnelle Zeiterfassung, mobile Eingabe, Abrechnung, Freigabedialog und Kundensicht geprüft; 390-/360-Pixel-Ansicht ohne horizontales Seiten-Scrolling, keine Warnungen/Fehler im geprüften Browserprotokoll |
 | Datenbanksicherung | Konsistenter SQL-Dump, Kopie auf den Host und Import in angehaltene separate Testumgebung erfolgreich |
-| Lokale Nutzdaten | Ein frisch angelegter Administrator; null Arbeitszeiteinträge. Beispieldaten und Lastdaten ausschließlich im separaten Testprojekt |
+| Lokale Nutzdaten | Die Vorlagenmigration erhält vorhandene Benutzer und Arbeitszeiten. Beispieldaten ausschließlich im separaten Testprojekt |
 
 Die Fachtests decken unter anderem historische Stundensätze, Überlappung von Satzperioden, Vorrang persönlicher Sätze, Cent-Rundung, fehlende Sätze, nicht abrechenbare Zeiten, Team-/Kundensicht, fremde Schreibzugriffe, unveränderliche Abrechnungen, Korrektursummen, atomare Stapelaktionen, veraltete Datensätze, den letzten Administrator und Rechtewiderruf ab. HTTP-Tests prüfen zusätzlich CSRF, Origin-Prüfung, geschützte Dateien, parallele Wiederholungsanfragen, Passwortwechselpflicht und Sitzungswiderruf.
 
@@ -33,7 +37,7 @@ Die Tests mit erweiterten DB-Rechten erzeugen ausschließlich eine zufällig ben
 
 ## Gemessene lokale Leistung
 
-50.000 zusätzlich erzeugte Einträge, zehn verschiedene gleichzeitig angemeldete Benutzer, drei Durchläufe mit jeweils zehn parallelen Berichtsabfragen und zehn parallelen Speicheranfragen:
+Messstand Version 1.0 (für die Vorlagenerweiterung nicht erneut ausgeführt): 50.000 zusätzlich erzeugte Einträge, zehn verschiedene gleichzeitig angemeldete Benutzer, drei Durchläufe mit jeweils zehn parallelen Berichtsabfragen und zehn parallelen Speicheranfragen:
 
 | Operation | Anzahl | Mittelwert | Maximum |
 |---|---:|---:|---:|

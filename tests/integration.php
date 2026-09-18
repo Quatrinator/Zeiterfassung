@@ -98,6 +98,26 @@ try {
     $allAudit=implode('',query('SELECT COALESCE(before_json,\'\'),COALESCE(after_json,\'\') FROM audit_events')->fetchAll(PDO::FETCH_COLUMN));
     expect(!str_contains($allAudit,'password_hash')&&!str_contains($allAudit,$hash),'audit does not store password hashes');
     expect((int)query('SELECT COUNT(*) FROM audit_events')->fetchColumn()>10,'mutations create audit trail');
+    expect(count(activity_templates($ben))===6,'default activity templates available to members');
+    denied(fn()=>activity_templates($customer),403,'customer cannot read template catalog');
+    denied(fn()=>create_activity_template($ben,['label'=>'Drucker einrichten']),403,'template management requires permission');
+    $template=create_activity_template($admin,['label'=>'Drucker einrichten'])['id'];
+    denied(fn()=>create_activity_template($admin,['label'=>'Drucker einrichten']),422,'duplicate template rejected');
+    denied(fn()=>create_activity_template($admin,['label'=>'   ']),422,'empty template rejected');
+    $templateInput=input_entry(['template_id'=>$template,'description'=>'']);
+    $templateEntry=save_entry($ben,$templateInput)['id'];
+    expect(entry_record($templateEntry)['description']==='Drucker einrichten','template selection alone produces complete description');
+    $withNote=save_entry($ben,input_entry(['template_id'=>$template,'description'=>'Im Empfang']))['id'];
+    expect(entry_record($withNote)['description']==='Drucker einrichten – Im Empfang','template and optional note combined');
+    denied(fn()=>save_entry($ben,input_entry(['description'=>''])),422,'description required without template');
+    denied(fn()=>save_entry($ben,input_entry(['template_id'=>$template,'description'=>str_repeat('a',500)])),422,'combined description length validated');
+    denied(fn()=>delete_activity_template($ben,['id'=>$template]),403,'member cannot delete shared template without permission');
+    query('INSERT INTO user_permissions VALUES(?,?)',[$ben['id'],'templates.manage']);
+    delete_activity_template(load_user((int)$ben['id']),['id'=>$template]);
+    expect(entry_record($templateEntry)['description']==='Drucker einrichten','deleting template preserves historical entry text');
+    expect(save_entry($ben,$templateInput)['id']===$templateEntry,'retry remains idempotent after template deletion');
+    denied(fn()=>save_entry($ben,input_entry(['template_id'=>$template,'description'=>''])),409,'concurrently deleted template is rejected');
+    expect((int)query("SELECT COUNT(*) FROM audit_events WHERE action IN ('template.created','template.deleted')")->fetchColumn()===2,'template changes audited');
     echo "\n$count integration checks passed against MySQL ".$root->query('SELECT VERSION()')->fetchColumn().".\n";
 } finally {
     if(db()->inTransaction()) db()->rollBack();

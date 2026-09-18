@@ -37,7 +37,8 @@
   .brand-light .brand-mark { @apply bg-white/10; }
   .brand-light small { @apply text-white/50; }
   .app-layout { @apply min-h-screen; }
-  .sidebar { @apply fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-[#e3e8e1] bg-[#fdfefd] px-6 py-8; }
+  .sidebar { @apply fixed inset-y-0 left-0 z-30 flex w-64 flex-col overflow-y-auto border-r border-[#e3e8e1] bg-[#fdfefd] px-6 py-8; }
+  .sidebar>* { flex-shrink:0; }
   .workspace-label { @apply my-9 flex items-center gap-3 rounded-xl border border-[#e7eae5] bg-[#f8faf7] px-3 py-3 text-xs font-semibold; }
   .workspace-label small { @apply mt-1 block font-normal text-[#88958b]; }
   .workspace-icon { @apply flex h-8 w-8 items-center justify-center rounded-lg border border-[#e2e8df] bg-white text-lg; }

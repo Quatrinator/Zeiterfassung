@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-const base='http://localhost:18080';
+const base='http://127.0.0.1:18080';
 const clients=[];
 for(let i=1;i<=10;i++) {
   const c={cookie:'',csrf:''};

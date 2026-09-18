@@ -4,7 +4,7 @@ $stagePath = Join-Path $projectPath ('.runtime/release-' + [guid]::NewGuid().ToS
 $outputPath = Join-Path $projectPath 'dist'
 New-Item -ItemType Directory -Force $stagePath, $outputPath | Out-Null
 $folders = @('public','src','templates','config','bin','database','docker','styles','tests')
-$files = @('compose.yaml','compose.test.yaml','.env.example','.gitignore','.dockerignore','README.md','IMPLEMENTIERUNG.md','THIRD_PARTY_NOTICES.md','Anforderungsanalyse.md','Konzept.md')
+$files = @('compose.yaml','compose.test.yaml','.env.example','.gitignore','.gitattributes','.dockerignore','README.md','IMPLEMENTIERUNG.md','THIRD_PARTY_NOTICES.md','Anforderungsanalyse.md','Konzept.md')
 foreach ($folder in $folders) {
     foreach ($sourceFile in Get-ChildItem -LiteralPath (Join-Path $projectPath $folder) -Recurse -File -Force) {
         $relativePath = [IO.Path]::GetRelativePath($projectPath, $sourceFile.FullName)
@@ -17,7 +17,7 @@ foreach ($folder in $folders) {
 foreach ($file in $files) { Copy-Item -LiteralPath (Join-Path $projectPath $file) -Destination (Join-Path $stagePath $file) }
 New-Item -ItemType Directory -Force (Join-Path $stagePath 'secrets') | Out-Null
 New-Item -ItemType File (Join-Path $stagePath 'secrets/.gitkeep') | Out-Null
-$archivePath = Join-Path $outputPath 'zeitwerk-1.0.0.zip'
+$archivePath = Join-Path $outputPath 'zeitwerk-1.1.0.zip'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 if (Test-Path -LiteralPath $archivePath) { Remove-Item -LiteralPath $archivePath }
 [IO.Compression.ZipFile]::CreateFromDirectory($stagePath, $archivePath, [IO.Compression.CompressionLevel]::Optimal, $false)

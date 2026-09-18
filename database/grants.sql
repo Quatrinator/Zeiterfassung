@@ -12,3 +12,4 @@ GRANT SELECT, INSERT ON zeitwerk.audit_events TO 'zeitwerk'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON zeitwerk.submission_keys TO 'zeitwerk'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON zeitwerk.login_attempts TO 'zeitwerk'@'%';
 GRANT SELECT ON zeitwerk.schema_versions TO 'zeitwerk'@'%';
+GRANT SELECT, INSERT, DELETE ON zeitwerk.activity_templates TO 'zeitwerk'@'%';

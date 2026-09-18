@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#143d35">
     <title><?= e(config()['app_name']) ?> · IT-Zeiterfassung</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/assets/css/app.css?v=3">
-    <script src="/assets/js/app.js?v=3" defer></script>
+    <link rel="stylesheet" href="/assets/css/app.css?v=4">
+    <script src="/assets/js/app.js?v=4" defer></script>
 </head>
 <body>
 <a href="#main" class="skip-link">Zum Inhalt</a>

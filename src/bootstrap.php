@@ -5,6 +5,7 @@ const ROOT = __DIR__ . '/..';
 require_once __DIR__ . '/core.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/entries.php';
+require_once __DIR__ . '/activity_templates.php';
 require_once __DIR__ . '/admin.php';
 require_once __DIR__ . '/reports.php';
 

@@ -3,7 +3,7 @@ const boot = JSON.parse(document.getElementById('boot').textContent);
 const user = boot.user;
 const main = document.getElementById('main');
 const modal = document.getElementById('modal');
-const state = { route: '', filters: {}, entries: [], people: [], selected: new Set(), page: 1, admin: null, rates: [], sequence: 0 };
+const state = { route: '', filters: {}, entries: [], people: [], templates: [], selected: new Set(), page: 1, admin: null, rates: [], sequence: 0 };
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = value => value === null || value === undefined ? 'Satz fehlt' : new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(Number(value)/100);
 const euroInput = value => (Number(value)/100).toFixed(2).replace('.',',');
@@ -55,6 +55,7 @@ function initNavigation() {
   const links = user.kind==='customer' ? [['customer','Leistungsübersicht','bill']] : [['capture','Zeit erfassen','plus'],['mine','Meine Zeiten','clock'],['team','Teamübersicht','team']];
   if(can('finance.view')) links.push(['billing','Abrechnung','bill']);
   if(can('rates.manage')) links.push(['rates','Stundensätze','rates']);
+  if(can('templates.manage')) links.push(['templates','Tätigkeitsvorlagen','list']);
   if(user.is_admin) links.push(['users','Benutzer','team'],['roles','Rollen & Rechte','shield']);
   if(can('audit.view')) links.push(['audit','Änderungshistorie','history']);
   document.getElementById('navigation').innerHTML='<div class="nav-heading">ÜBERSICHT</div>'+links.map(([route,title,ico])=>`<a class="nav-link" href="#${route}" data-route="${route}">${icon(ico)}${title}</a>`).join('');
@@ -74,6 +75,10 @@ async function render() {
   document.querySelector('[data-command="menu"]').setAttribute('aria-expanded','false');
   main.innerHTML='<div class="loading-state">Wird geladen …</div>';
   try {
+    if(user.kind==='internal') {
+      const data=await api('templates'); if(sequence!==state.sequence) return;
+      state.templates=data.templates;
+    }
     if(route==='capture') { const data=await api('dashboard'); if(sequence===state.sequence) renderCapture(data); }
     else if(['mine','team','billing','customer'].includes(route)) {
       const [data,p]=await Promise.all([api('entries',{...state.filters,page:state.page}),api('people')]);
@@ -81,17 +86,27 @@ async function render() {
     } else if(['users','roles'].includes(route)) { const data=await api('admin'); if(sequence===state.sequence) { state.admin=data; renderAdmin(route,data); } }
     else if(route==='rates') { const data=await api('rates'); if(sequence===state.sequence) { state.rates=data.rates; state.people=data.people; renderRates(data); } }
     else if(route==='audit') { const data=await api('audit',{page:state.page}); if(sequence===state.sequence) renderAudit(data); }
+    else if(route==='templates') renderTemplates();
   } catch(error) { if(sequence===state.sequence) main.innerHTML=`${heading('Das hat nicht geklappt','Deine gespeicherten Daten bleiben erhalten.')}<div class="panel panel-body"><p class="mb-4">${esc(error.message)}</p><button class="btn btn-primary" data-command="refresh">Erneut versuchen</button></div>`; }
 }
 function entryForm(entry=null) {
   const id=entry?.id;
+  const template=[...state.templates].sort((a,b)=>b.label.length-a.label.length).find(t=>entry?.description===t.label||entry?.description?.startsWith(t.label+' – '));
+  const note=template?entry.description.slice(template.label.length).replace(/^ – /,''):(entry?.description||'');
   return `<form data-action="entry.save" class="form-stack">${hidden('request_key',randomKey())}${id?hidden('id',id)+hidden('version',entry.version):''}
     <div class="field-row"><label>Leistungsdatum<input type="date" name="service_date" required min="2000-01-01" max="${boot.today}" value="${esc(entry?.service_date||boot.today)}"></label>
     <div><label>Dauer <span class="sr-only">in Minuten</span><input type="number" name="minutes" min="1" max="1440" step="1" inputmode="numeric" required placeholder="Minuten" value="${entry?entry.minutes:''}"></label><div class="quick-buttons">${[15,30,60,120].map(n=>`<button type="button" class="quick-button" data-minutes="${n}">${n<60?n+' Min.':n/60+' Std.'}</button>`).join('')}</div></div></div>
-    <label>Was hast du gemacht?<textarea name="description" required maxlength="500" placeholder="Zum Beispiel: VPN-Zugang eingerichtet …">${esc(entry?.description||'')}</textarea></label>
+    <label>Tätigkeit auswählen<select name="template_id"><option value="">Eigene Tätigkeit / keine Vorlage</option>${state.templates.map(t=>`<option value="${t.id}" ${template?.id===t.id?'selected':''}>${esc(t.label)}</option>`).join('')}</select></label>
+    <div class="flex flex-wrap items-center justify-between gap-2"><span class="helper">Eine Vorlage genügt. Ergänzungen sind optional.</span>${can('templates.manage')&&!entry?'<a class="link-button" href="#templates">Vorlagen verwalten</a>':''}</div>
+    <label><span data-description-label>${template?'Ergänzung (optional)':'Was hast du gemacht?'}</span><textarea name="description" ${template?'':'required'} maxlength="500" placeholder="${template?'Bei Bedarf ergänzen …':'Tätigkeit beschreiben oder oben eine Vorlage wählen …'}">${esc(note)}</textarea></label>
     <div class="field-row"><label>Kategorie <span class="helper">Optional</span><select name="category">${['','Support','Wartung','Einrichtung','Entwicklung','Beratung','Sonstiges'].map(x=>`<option value="${x}" ${entry?.category===x?'selected':''}>${x||'Ohne Kategorie'}</option>`).join('')}</select></label><div class="flex flex-col justify-end gap-3 pb-3"><label class="check-label"><input type="checkbox" name="billable" ${!entry || entry.billable?'checked':''}> Abrechenbare Tätigkeit</label><span class="helper">Deine Zeit ist im gesamten Team sichtbar.</span></div></div>
     ${id && (user.is_admin||Number(entry.user_id)!==Number(user.id))?'<label>Änderungsgrund<input name="reason" required maxlength="500" placeholder="Warum wird der Eintrag geändert?"></label>':''}
     ${errorBox}<div class="form-bottom"><span class="helper">${id?'Änderungen werden protokolliert.':'Datum und Person sind bereits zugeordnet.'}</span><button class="btn btn-primary" type="submit">${icon('check')}${id?'Änderung speichern':'Zeit speichern'}</button></div></form>`;
+}
+function renderTemplates() {
+  main.innerHTML=heading('Tätigkeitsvorlagen','Gemeinsame Tätigkeiten auswählen, statt sie jedes Mal neu zu schreiben.')+
+    `<section class="panel panel-body mb-6"><form data-action="template.create" class="form-stack"><label>Neue Tätigkeitsvorlage<input name="label" required maxlength="150" placeholder="Zum Beispiel: Drucker einrichten"></label>${errorBox}<div><button type="submit" class="btn btn-primary">${icon('plus')} Vorlage hinzufügen</button></div></form></section>`+
+    `<section class="panel"><div class="panel-head"><h2>Verfügbare Vorlagen</h2><span class="helper">${state.templates.length} Vorlagen</span></div>${state.templates.length?state.templates.map(t=>`<div class="entry-row"><div class="entry-body"><strong>${esc(t.label)}</strong></div><button type="button" class="btn btn-small btn-secondary" data-command="delete-template" data-id="${t.id}" aria-label="${esc(t.label)} löschen">Löschen</button></div>`).join(''):empty('Noch keine Tätigkeitsvorlagen.','Lege oben die erste gemeinsame Vorlage an.')}<div class="panel-body"><p class="helper">Vorlagen stehen dem gesamten Team zur Verfügung. Beim Löschen bleiben bereits gespeicherte Arbeitszeiten unverändert.</p><a class="link-button" href="#capture">Zur Zeiterfassung →</a></div></section>`;
 }
 function renderCapture(data) {
   state.entries=data.recent;
@@ -152,7 +167,7 @@ function renderRates(data) {
 }
 function rateForm(rate=null) { modalOpen(rate?'Stundensatz bearbeiten':'Stundensatz anlegen',`<form data-action="rate.save" class="form-stack">${rate?hidden('id',rate.id)+hidden('version',rate.version):''}<label>Zuordnung<select name="user_id"><option value="">Firmenstandard</option>${state.people.map(p=>`<option value="${p.id}" ${p.id===rate?.user_id?'selected':''}>${esc(p.display_name)}</option>`).join('')}</select></label><label>Stundensatz netto in EUR<input name="rate" inputmode="decimal" required placeholder="80,00" value="${rate?euroInput(rate.cents_per_hour):''}"></label><div class="field-row"><label>Gültig ab<input type="date" name="valid_from" required value="${rate?.valid_from||boot.today}"></label><label>Gültig bis (exklusiv)<input type="date" name="valid_until" value="${rate?.valid_until||''}"></label></div><p class="helper">Das Enddatum selbst gehört zum folgenden Zeitraum. Leer bedeutet unbegrenzt.</p>${rate?'<label>Änderungsgrund<input name="reason" required maxlength="500"></label>':''}${actions()}</form>`); }
 function renderAudit(data) {
-  const names={'entry.created':'Arbeitszeit erfasst','entry.updated':'Arbeitszeit geändert','entry.deleted':'Eintrag gelöscht','entry.release':'Leistung freigegeben','entry.recall':'Freigabe zurückgezogen','entry.bill':'Als abgerechnet markiert','entry.reprice':'Stundensatz neu zugeordnet','user.created':'Benutzer angelegt','user.updated':'Benutzerrechte geändert','user.password_reset':'Passwort zurückgesetzt','password.changed':'Passwort geändert','rate.saved':'Stundensatz gespeichert','role.saved':'Rolle gespeichert','adjustment.created':'Korrektur angelegt','admin.bootstrap':'Erster Admin angelegt'};
+  const names={'entry.created':'Arbeitszeit erfasst','entry.updated':'Arbeitszeit geändert','entry.deleted':'Eintrag gelöscht','entry.release':'Leistung freigegeben','entry.recall':'Freigabe zurückgezogen','entry.bill':'Als abgerechnet markiert','entry.reprice':'Stundensatz neu zugeordnet','user.created':'Benutzer angelegt','user.updated':'Benutzerrechte geändert','user.password_reset':'Passwort zurückgesetzt','password.changed':'Passwort geändert','rate.saved':'Stundensatz gespeichert','role.saved':'Rolle gespeichert','adjustment.created':'Korrektur angelegt','admin.bootstrap':'Erster Admin angelegt','template.created':'Tätigkeitsvorlage angelegt','template.deleted':'Tätigkeitsvorlage gelöscht'};
   main.innerHTML=heading('Änderungshistorie','Wer hat wann was verändert? Die interne Historie schafft Klarheit.')+`<section class="panel">${data.events.length?data.events.map(event=>`<article class="audit-item"><div class="flex flex-wrap items-center justify-between gap-2"><strong>${esc(names[event.action]||event.action)}</strong><span class="muted">${stamp(event.created_at)}</span></div><p class="helper mt-2">${esc(event.actor_name||'System')} · ${esc(event.entity)} #${event.entity_id||'–'}</p>${event.reason?`<p class="mt-2">${esc(event.reason)}</p>`:''}<details class="mt-3"><summary class="link-button cursor-pointer">Änderungsdetails</summary><pre>${esc(JSON.stringify({vorher:event.before_json?JSON.parse(event.before_json):null,nachher:event.after_json?JSON.parse(event.after_json):null},null,2))}</pre></details></article>`).join(''):empty('Noch keine Änderungen.','Sobald etwas gespeichert wird, erscheint hier die Historie.')}${pagination(data.page,data.pages)}</section>`;
 }
 function payloadFrom(form) {
@@ -187,6 +202,12 @@ document.addEventListener('submit',async event=>{
 });
 document.addEventListener('change',event=>{
   const el=event.target;
+  if(el.name==='template_id') {
+    const form=el.closest('form'), selected=el.value!=='';
+    form.elements.description.required=!selected;
+    form.elements.description.placeholder=selected?'Bei Bedarf ergänzen …':'Tätigkeit beschreiben oder oben eine Vorlage wählen …';
+    form.querySelector('[data-description-label]').textContent=selected?'Ergänzung (optional)':'Was hast du gemacht?';
+  }
   if(el.id==='user-kind') {
     const customer=el.value==='customer';
     document.querySelectorAll('[data-role-kind]').forEach(label=>{label.hidden=label.dataset.roleKind!==el.value; label.querySelector('input').checked=customer?label.dataset.roleKind==='customer':label.querySelector('input').value==='1';});
@@ -200,7 +221,7 @@ document.addEventListener('change',event=>{
 document.addEventListener('click',async event=>{
   const el=event.target.closest('[data-command],[data-minutes],[data-page],[data-transition]'); if(!el) return;
   try {
-    if(el.dataset.minutes) { const form=el.closest('form'); form.elements.minutes.value=el.dataset.minutes; form.querySelectorAll('[data-minutes]').forEach(b=>b.classList.toggle('selected',b===el)); form.elements.description.focus(); return; }
+    if(el.dataset.minutes) { const form=el.closest('form'); form.elements.minutes.value=el.dataset.minutes; form.querySelectorAll('[data-minutes]').forEach(b=>b.classList.toggle('selected',b===el)); (!form.elements.template_id.value&&!form.elements.description.value?form.elements.template_id:form.elements.description).focus(); return; }
     if(el.dataset.page) { state.page=Number(el.dataset.page); state.selected.clear(); await render(); return; }
     if(el.dataset.transition) { showTransition(el.dataset.transition); return; }
     const command=el.dataset.command, id=Number(el.dataset.id), entry=state.entries.find(e=>e.id===id);
@@ -223,6 +244,10 @@ document.addEventListener('click',async event=>{
     else if(command==='new-role') roleForm();
     else if(command==='edit-role') roleForm(state.admin.roles.find(r=>r.id===id));
     else if(command==='new-rate') rateForm();
+    else if(command==='delete-template') {
+      const template=state.templates.find(t=>t.id===id);
+      if(template) modalOpen('Tätigkeitsvorlage löschen?',`<form data-action="template.delete" class="form-stack">${hidden('id',id)}<p>${esc(template.label)}</p><p class="helper">Diese Vorlage verschwindet aus der Auswahl des gesamten Teams. Gespeicherte Arbeitszeiten bleiben erhalten.</p>${actions('Vorlage löschen',true)}</form>`);
+    }
     else if(command==='edit-rate') rateForm(state.rates.find(r=>r.id===id));
   } catch(error) { toast(error.message,true); }
 });

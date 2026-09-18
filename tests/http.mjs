@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-const base='http://localhost:18080'; // Deliberately fixed to the isolated test project.
+const base='http://127.0.0.1:18080'; // Deliberately fixed to the isolated test project.
 let checks=0;
 const check=(value,label)=>{assert.ok(value,label);checks++;console.log('PASS '+label);};
 class Client {
@@ -55,4 +55,16 @@ await admin.request('/api',{action:'user.reset',id:account.id,admin_password:'Lo
 check((await fresh.request('/api?resource=entries')).status===401,'password reset revokes existing session');
 const audit=await admin.request('/api?resource=audit');
 check(!audit.text.includes('password_hash')&&!audit.text.includes(newUser.data.initial_password),'audit response contains no password secrets');
+check((await customer.request('/api?resource=templates')).status===403,'customer template catalog denied');
+const templates=await member.request('/api?resource=templates');
+check(templates.status===200&&templates.data.templates.length>=6,'members can choose shared defaults');
+check((await member.request('/api',{action:'template.create',label:'Nicht erlaubt'})).status===403,'template creation permission enforced');
+const label='HTTP-Vorlage '+randomUUID();
+const createdTemplate=await admin.request('/api',{action:'template.create',label});
+check(createdTemplate.status===200,'admin creates template');
+const selected=await member.request('/api',{...payload,template_id:createdTemplate.data.id,description:'',request_key:randomUUID().replaceAll('-','')});
+check(selected.status===200,'template-only entry accepted by HTTP API');
+await admin.request('/api',{action:'template.delete',id:createdTemplate.data.id});
+check((await member.request('/api?resource=entries')).data.entries.find(e=>e.id===selected.data.id)?.description===label,'deleted template leaves saved text intact');
+check((await member.request('/api?resource=templates')).data.templates.every(t=>t.id!==createdTemplate.data.id),'deleted template removed from dropdown catalog');
 console.log(`${checks} HTTP checks passed.`);

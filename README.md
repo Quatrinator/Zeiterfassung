@@ -5,6 +5,7 @@ Kleine, deutschsprachige Webanwendung für ein IT-Team und eine externe Firma. P
 ## Funktionen
 
 - Schnellerfassung mit heutigem Datum, Dauer-Schaltflächen, Beschreibung, Kategorie und Abrechenbarkeit; letzte Tätigkeit übernehmen.
+- Gemeinsame Tätigkeitsvorlagen im Dropdown. Eine Auswahl reicht ohne Kommentar; optionaler Freitext ergänzt die Vorlage. Ohne Vorlage bleibt die eigene Beschreibung verpflichtend. Sechs typische IT-Tätigkeiten sind vorbelegt.
 - Alle internen Benutzer sehen die Tätigkeiten des gesamten Teams. Eigene Entwürfe sind bearbeitbar; fremde nur mit entsprechender Berechtigung.
 - Lokale Benutzerkonten, Administratoren, eigene Rollen und Zusatzrechte. Keine Selbstregistrierung. Initialpasswörter gelten 24 Stunden und müssen geändert werden.
 - Stundensätze pro Firma oder Person mit Gültigkeitszeiträumen; persönliche Sätze haben Vorrang. Gespeicherte Sätze bleiben historisch erhalten.
@@ -95,6 +96,12 @@ Geänderte Stundensätze verändern keine alten Einträge. **Neu berechnen** ord
 
 CSV übernimmt dieselben Filter und dieselbe Sichtbarkeit wie die Liste, über alle Seiten hinweg. UTF-8 mit BOM, Semikolon, Dezimalkomma; Zeitwerte in Minuten. Beschreibungstexte werden gegen Tabellenformeln abgesichert. Datumszuordnung erfolgt in Europe/Berlin, technische Zeitstempel werden in UTC gespeichert.
 
+## Tätigkeitsvorlagen
+
+Unter **Zeit erfassen → Tätigkeit auswählen** eine Vorlage wählen und bei Bedarf ergänzen. Gespeichert wird ein eigenständiger Text, beispielsweise „Backup prüfen – Sicherung vom Wochenende“. Für eine freie Tätigkeit „Eigene Tätigkeit / keine Vorlage“ wählen und die Beschreibung ausfüllen. Auswahl und Ergänzung dürfen zusammen höchstens 500 Zeichen lang sein.
+
+Administratoren können unter **Tätigkeitsvorlagen** gemeinsame Vorlagen hinzufügen und nach Bestätigung löschen. Das zusätzliche Recht `templates.manage` lässt sich über Rollen oder Benutzerrechte delegieren und erteilt keine Betragsansicht. Bestehende Einträge und Exporte behalten ihren ursprünglichen Text nach dem Löschen. Beim Bearbeiten wird eine noch vorhandene passende Vorlage wieder ausgewählt; bei gelöschten Vorlagen bleibt die komplette Beschreibung als Freitext erhalten.
+
 ## Sichern
 
 Die MySQL-Daten liegen im Docker-Volume `zeitwerk_mysql_data`, nicht im Quellcodeordner. Ein Kopieren des Ordners allein nimmt bestehende Daten **nicht** mit. Regelmäßig SQL-Sicherung, passende Programmversion und Konfiguration getrennt vom Host sichern. SQL-Dateien enthalten Benutzerdaten und Passwort-Hashes und müssen entsprechend geschützt werden.
@@ -151,7 +158,13 @@ docker compose ps
 docker compose logs --tail=100 php nginx mysql
 ```
 
-Das initiale SQL läuft ausschließlich auf einem leeren MySQL-Volume. Diese Version hat Schema `001_initial`; es gibt noch keine späteren Datenbankmigrationen. Zukünftige Schemaänderungen benötigen ein eigenes geprüftes SQL-Update. `schema.sql` auf einer produktiven Datenbank erneut auszuführen ist kein Updateverfahren. Bei Wiederverwendung bestehender Volumes die bestehenden Secrets aufbewahren: bloßes Ändern der Passwortdateien ändert keine MySQL-Benutzerpasswörter.
+Das initiale SQL läuft ausschließlich auf einem leeren MySQL-Volume. Version 1.1.0 enthält zusätzlich Schema `002_activity_templates`. Bei einer bestehenden Installation nach Sicherung und Kopieren der neuen Dateien einmal ausführen:
+
+```sh
+docker compose exec -T mysql sh /opt/zeitwerk/migrate.sh
+```
+
+Die Migration ergänzt Vorlagentabelle, Standardvorlagen und Rechte. Ein erneuter Aufruf überspringt bereits angewendete Änderungen; bewusst gelöschte Vorlagen werden nicht erneut angelegt. `schema.sql` auf einer produktiven Datenbank erneut auszuführen ist kein Updateverfahren. Bei Wiederverwendung bestehender Volumes die bestehenden Secrets aufbewahren: bloßes Ändern der Passwortdateien ändert keine MySQL-Benutzerpasswörter.
 
 HTTP-Sitzungen liegen im separaten Volume und laufen nach acht Stunden Inaktivität ab. Eine einzige PHP-Instanz ist vorgesehen. Zugangsdaten gehören nicht ins Repository. `login_attempts` und `submission_keys` werden derzeit dauerhaft gespeichert; bei längerem Betrieb Datenwachstum beobachten. Eine Aufbewahrungs-/Bereinigungsroutine ist noch nicht enthalten. Protokolle der Container sind größenbegrenzt.
 
@@ -182,7 +195,7 @@ node tests/http.mjs
 docker compose -p zeitwerk-tests -f compose.yaml -f compose.test.yaml exec -T php php tests/grants.php
 ```
 
-Nur für diesen optionalen Entwicklertest ist Node.js erforderlich. Testoberfläche: `http://localhost:18080`; Konten `qa_admin`, `qa_member`, `qa_customer`, Passwort jeweils `LocalTestPassphrase!2026`. Niemals nach außen veröffentlichen. Fixtures nur in leerer Testdatenbank ausführen. Nach den Tests ausschließlich das Testprojekt entfernen:
+Nur für diesen optionalen Entwicklertest ist Node.js erforderlich. Testoberfläche: `http://127.0.0.1:18080`; Konten `qa_admin`, `qa_member`, `qa_customer`, Passwort jeweils `LocalTestPassphrase!2026`. Niemals nach außen veröffentlichen. Fixtures nur in leerer Testdatenbank ausführen. Nach den Tests ausschließlich das Testprojekt entfernen:
 
 ```sh
 docker compose -p zeitwerk-tests -f compose.yaml -f compose.test.yaml down -v
@@ -199,4 +212,4 @@ node tests/performance.mjs
 
 Er erzeugt 50.000 Einträge und zehn Testkonten ausschließlich im Testprojekt. Das Skript prüft drei Durchläufe paralleler Berichts- und Speicheranfragen.
 
-Das fertige portable Paket wird unter `dist/zeitwerk-1.0.0.zip` bereitgestellt. Entwickler können es mit PowerShell 7 über `./bin/package.ps1` erneut erzeugen. Der Paketcheck schließt lokale Konfiguration, Initialzugang, Secrets und Entwicklungswerkzeuge aus. Ein produktiver Datenbankexport wird bewusst separat transportiert.
+Das fertige portable Paket wird unter `dist/zeitwerk-1.1.0.zip` bereitgestellt. Entwickler können es mit PowerShell 7 über `./bin/package.ps1` erneut erzeugen. Der Paketcheck schließt lokale Konfiguration, Initialzugang, Secrets und Entwicklungswerkzeuge aus. Ein produktiver Datenbankexport wird bewusst separat transportiert.

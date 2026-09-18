@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 function permission_catalog(): array
 {
-    return ['entries.manage_team'=>'Fremde Entwürfe bearbeiten','finance.view'=>'Beträge und Stundensätze sehen','rates.manage'=>'Stundensätze verwalten','entries.release'=>'Leistungen freigeben','billing.finalize'=>'Als abgerechnet markieren','billing.correct'=>'Abgerechnete Leistungen korrigieren','audit.view'=>'Änderungshistorie lesen'];
+    return ['entries.manage_team'=>'Fremde Entwürfe bearbeiten','finance.view'=>'Beträge und Stundensätze sehen','rates.manage'=>'Stundensätze verwalten','entries.release'=>'Leistungen freigeben','billing.finalize'=>'Als abgerechnet markieren','billing.correct'=>'Abgerechnete Leistungen korrigieren','audit.view'=>'Änderungshistorie lesen','templates.manage'=>'Tätigkeitsvorlagen verwalten'];
 }
 function load_user(int $id): ?array
 {

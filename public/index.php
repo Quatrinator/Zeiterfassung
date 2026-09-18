@@ -27,6 +27,8 @@ try {
             'user.reset'=>reset_password($actor,$input),
             'role.save'=>save_role($actor,$input),
             'rate.save'=>save_rate($actor,$input),
+            'template.create'=>create_activity_template($actor,$input),
+            'template.delete'=>delete_activity_template($actor,$input),
             default=>fail('Unbekannte Aktion.',404),
         };
         json_response($result);
@@ -40,6 +42,7 @@ try {
         if ($resource==='entries') json_response(report($actor,$_GET));
         if ($resource==='dashboard') json_response(dashboard($actor));
         if ($resource==='people') json_response(['people'=>people($actor)]);
+        if ($resource==='templates') json_response(['templates'=>activity_templates($actor)]);
         if ($resource==='admin') json_response(admin_data($actor));
         if ($resource==='rates') {
             require_permission($actor,'rates.manage');
